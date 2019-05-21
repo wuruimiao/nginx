@@ -1,7 +1,62 @@
 
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
+# 主要用于配置一些nginx所依赖的一些外部库：
+#   PCRE库
+#   OpenSSL库
+#   MD5库
+#   sha1库
+#   zlib库
+#   xslt库
+#   LibGD库
+#   Perl库
+#   Geoip库
+#   Google Perftools库
+#   LibAtomic库
 
+#1) PCRE库
+#
+#在我们配置configure脚本时通过--with-pcre=*启用了PCRE,然后在auto/modules中通过HTTP_REWRITE会启用USE_PCRE,因此这里会调用auto/lib/pcre/conf。
+#
+#2) OpenSSL库
+#
+#我们通过--with-http_ssl_module会启用HTTP_SSL，从而USE_OPENSSL会置为YES，因此这里会调用auto/lib/openssl/conf。
+#
+#3) MD5库
+#
+#auto/options脚本中默认启用HTTP_CACHE，从而导致auto/modules中会启用USE_MD5，同时又因为USE_OPENSSL值为YES，因此会采用OpenSSL中的MD5。
+#
+#4) SHA1库
+#
+#在auto/options中HTTP_AUTH_BASIC默认值为YES，因此会导致在auto/modules脚本中启用USE_SHA1。这里也会使用OpenSSL中的SHA1.
+#
+#5) Zlib库
+#
+#在auto/options脚本中HTTP_GZIP默认值为YES，因此会导致在auto/modules脚本中启用USE_ZLIB，因此这里会调用auto/lib/zlib/conf.
+#
+#6) XSLT库
+#
+#USE_LIBXSLT并不会被启用。
+#
+#7) LibGD库
+#
+#USE_LIBGD并不会被启用。
+#
+#8) Perl库
+#
+#USE_PERL并不会被启用。
+#
+#9) GeoIP库
+#
+#USE_GEOIP并不会被启用。
+#
+#10) Google PerfTools库
+#
+#NGX_GOOGLE_PERFTOOLS并不会被启用。
+#
+#11) libatomic库
+#
+#NGX_LIBATOMIC并不会被启用。
 
 if [ $USE_PCRE = YES -o $PCRE != NONE ]; then
     . auto/lib/pcre/conf

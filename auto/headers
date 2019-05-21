@@ -2,7 +2,11 @@
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
+# 其主要用于包含类Unix操作系统下的头文件。所关联的脚本文件主要有两个：
+#  auto/include脚本文件
+#  auto/headers脚本文件
 
+# 测试下述头文件是否存在。存在的话向对应的头文件写入相关宏定义；不存在的话则打印出相应的提示信息。
 ngx_include="unistd.h";      . auto/include
 ngx_include="inttypes.h";    . auto/include
 ngx_include="limits.h";      . auto/include

@@ -12,6 +12,8 @@ checking for $ngx_type
 
 END
 
+# 循环检查对应的类型
+# 检查$ngx_type与$ngx_types，尝试找到一个可用的类型。
 ngx_found=no
 
 for ngx_try in $ngx_type $ngx_types
@@ -70,6 +72,7 @@ END
     fi
 done
 
+# 如果找到的可用类型不是$ngx_type的话，则用typedef定义之，并将结果写到objs/ngx_auto_config.h头文件中。
 if [ $ngx_found = no ]; then
     echo
     echo "$0: error: can not define $ngx_type"

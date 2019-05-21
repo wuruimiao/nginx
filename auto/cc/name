@@ -2,8 +2,25 @@
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
+# 根据$CC的名称设置NGX_CC_NAME的值。
 
 if [ "$NGX_PLATFORM" != win32 ]; then
+
+    # Windows 平台的编译器叫做MSVC，其他平台的都统称为C Compiler。
+    # 首先判断是否为win32平台，如果不是的话，则判断其是否具有c编译器特征。
+    # 生成如下内容的autotest.c文件：
+    #
+    #  #include <sys/types.h>
+    #
+    #  int main() {
+    #  	;
+    #  	return 0;
+    #  }
+    # 编译并运行此脚本，ngx_found值会被设置为yes。
+    # 假如ngx_found值为no的话，则会打印出：
+    #     ./auto/cc/name: error: C compiler $CC is not found
+    # 然后退出整个脚本的运行。
+
 
     ngx_feature="C compiler"
     ngx_feature_name=

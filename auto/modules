@@ -2,7 +2,34 @@
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
+# 主要功能是定义Nginx相应的各个模块：
+#   event模块
+#   HTTP模块
+#   CORE模块
+#   HTTP_FILTER模块
+#   HTTP_INIT_FILTER模块
+#   HTTP_AUX_FILTER模块
+#   MAIL模块
+#   STREAM模块
+#   MISC模块
+# 上述是几个大的模块类型，每一个模块类型里面可能会有多个小的子模块组成。其中后边8种模块是ngx_module_type可取的类型。
 
+# event模块
+# 首先判断EVENT_SELECT有没有被设置，并且是否EVENT_FOUNT变量是否找到了更先进的事件模型。
+# 如果两者都为否的话，则直接设置EVENT_SELECT=YES，
+# 从这里我们可以看出nginx做的很聪明，它会先检查是否有更高级的事件模型，
+# 没有的话才会选择大部分系统都自持的相对来说性能较低的select模型。
+#
+#   默认情况下，在auto/options脚本中将EVENT_SELECT设置为了NO。
+#
+#   对于EVENT_FOUND，首先我们在auto/options脚本中初始设置为NO。然后在auto/os/linux脚本中对epoll
+#   事件模型做了检测，接着在auto/unix脚本中对/dev/poll模型做了检测，后面又在auto/unix脚本中对
+#   kqueue模型做了检测。
+#
+#   这里我们发现存在一个问题，对于中等效率的poll模型，其并没有通过EVENT_FOUND这一变量来指示。
+#   但是nginx引入了另外一个变量EVENT_POLL，其首先在auto/options脚本中被设置为NO,然后在auto/unix
+#   脚本中对poll模型进行检测，如果没有发现poll模型，则将EVENT_POLL设置为NONE。因此只要EVENT_POLL没有
+#   被设置为NONE，就说明本身操作系统是支持poll模型的.
 if [ $EVENT_SELECT = NO -a $EVENT_FOUND = NO ]; then
     EVENT_SELECT=YES
 fi
@@ -13,7 +40,12 @@ if [ $EVENT_SELECT = YES ]; then
     EVENT_MODULES="$EVENT_MODULES $SELECT_MODULE"
 fi
 
+# 接着判断EVENT_POLL是否被设置，并且是否EVENT_FOUND找到了更高级的事件模型。
+# 如果两者都为NO的话，则直接将EVENT_POLL设置为YES。
+# 这是因为我们在上面已经讲到，如果系统本身不支持poll模型的话，EVENT_POLL会被设置为NONE，因此这里我们这样设置是没有问题的。
 
+# 从这里我们可以看到对event模块的事件处理模型的选择，主要是通过EVENT_SELECT,EVENT_POLL,EVENT_FOUND这三个变量控制的。
+# 则三个变量可以确保nginx能找到一个当前系统所支持的最先进的事件模型.
 if [ $EVENT_POLL = NO -a $EVENT_FOUND = NO ]; then
     EVENT_POLL=YES
 fi
@@ -25,6 +57,16 @@ if [ $EVENT_POLL = YES ]; then
 fi
 
 
+# 最后再对三种先进的事件模型进行处理。分别判断如下三个变量是否被设置：
+#   NGX_TEST_BUILD_DEVPOLL
+#   NGX_TEST_BUILD_EVENTPORT
+#   NGX_TEST_BUILD_EPOLL
+# 默认情况下这三个变量都被设置为NO,一般是用户明确你当前系统支持相应特性时可以显示通过如下参数进行设置：
+#   --test-build-devpoll
+#   --test-build-eventport
+#   --test-build-epoll
+# 否则一般情况下，应该让系统自己检测然后选择使用哪一种事件模型。
+# 从如上脚本我们看到，发现相应的事件模型后，其都是定义好对应的宏定义；然后在往CORE_SRCS，CORE_MODULES添加相应的源文件及对应的事件模块名。
 if [ $NGX_TEST_BUILD_DEVPOLL = YES ]; then
     have=NGX_HAVE_DEVPOLL . auto/have
     have=NGX_TEST_BUILD_DEVPOLL . auto/have
@@ -50,12 +92,15 @@ if [ $NGX_TEST_BUILD_EPOLL = YES ]; then
     CORE_SRCS="$CORE_SRCS $EPOLL_SRCS"
 fi
 
+# Solaris sendfilev特性
+# 如果显示设置了NGX_TEST_BUILD_SOLARIS_SENDFILEV，则将对应的源代码文件加入到CORE_SRCS变量中保存起来。
 if [ $NGX_TEST_BUILD_SOLARIS_SENDFILEV = YES ]; then
     have=NGX_TEST_BUILD_SOLARIS_SENDFILEV . auto/have
     CORE_SRCS="$CORE_SRCS $SOLARIS_SENDFILEV_SRCS"
 fi
 
 
+# HTTP模块
 if [ $HTTP = YES ]; then
     HTTP_MODULES=
     HTTP_DEPS=
@@ -64,6 +109,7 @@ if [ $HTTP = YES ]; then
     ngx_module_type=HTTP
 
     if :; then
+        # 设置HTTP模块所需要的源文件、头文件、库文件等，调用auto/module脚本将相应的信息设置到模块变量中。
         ngx_module_name="ngx_http_module \
                          ngx_http_core_module \
                          ngx_http_log_module \
@@ -97,11 +143,13 @@ if [ $HTTP = YES ]; then
 
 
     if [ $HTTP_CACHE = YES ]; then
+        # HTTP_CACHE默认在auto/options中被设置为YES，即启用缓存。
         have=NGX_HTTP_CACHE . auto/have
         HTTP_SRCS="$HTTP_SRCS $HTTP_FILE_CACHE_SRCS"
     fi
 
 
+    # 默认情况下,HTTP_SSI被设置为YES；而HTTP_SLICE与HTTP_ADDITION被设置为NO。
     if [ $HTTP_SSI = YES ]; then
         HTTP_POSTPONE=YES
     fi
@@ -153,7 +201,18 @@ if [ $HTTP = YES ]; then
 
     ngx_module_type=HTTP_FILTER
     HTTP_FILTER_MODULES=
+    # 这里将ngx_module_type初始化为HTTP_FILTER,HTTP_FILTER_MODULES被初始化为空。
 
+    # 定义ngx_module_order
+    # 这是因为在auto/options中，如下几个module都有可能会被设置为dynamic:
+    #
+    #   HTTP_XSLT
+    #   HTTP_IMAGE_FILTER
+    #   HTTP_GEOIP
+    #   HTTP_PERL
+    #   MAIL
+    #   STREAM
+    #因此在下面有可能会处理这些模块时，首先定义好ngx_module_order。
     ngx_module_order="ngx_http_static_module \
                       ngx_http_gzip_static_module \
                       ngx_http_dav_module \
@@ -184,6 +243,7 @@ if [ $HTTP = YES ]; then
                       ngx_http_slice_filter_module"
 
     if :; then
+        # 处理ngx_http_write_filter_module，作为内部静态模块处理。
         ngx_module_name=ngx_http_write_filter_module
         ngx_module_incs=
         ngx_module_deps=
@@ -195,6 +255,7 @@ if [ $HTTP = YES ]; then
     fi
 
     if :; then
+        # 处理ngx_http_header_filter_module，作为内部静态模块处理。
         ngx_module_name=ngx_http_header_filter_module
         ngx_module_incs=
         ngx_module_deps=
@@ -206,6 +267,7 @@ if [ $HTTP = YES ]; then
     fi
 
     if :; then
+        # 处理ngx_http_chunked_filter_module，作为内部静态模块处理
         ngx_module_name=ngx_http_chunked_filter_module
         ngx_module_incs=
         ngx_module_deps=
@@ -217,6 +279,7 @@ if [ $HTTP = YES ]; then
     fi
 
     if [ $HTTP_V2 = YES ]; then
+        # 默认情况下HTTP_V2被设置为NO. HTTP_V2主要用于提供对http/2的支持。
         ngx_module_name=ngx_http_v2_filter_module
         ngx_module_incs=
         ngx_module_deps=
@@ -239,6 +302,7 @@ if [ $HTTP = YES ]; then
     fi
 
     if [ $HTTP_GZIP = YES ]; then
+        # auto/options中默认会启用HTTP_GZIP压缩。
         have=NGX_HTTP_GZIP . auto/have
         USE_ZLIB=YES
 
@@ -253,6 +317,7 @@ if [ $HTTP = YES ]; then
     fi
 
     if [ $HTTP_POSTPONE = YES ]; then
+        # 上面我们提到这里HTTP_POSTPONE会被置为YES，因此会启用postpone filter模块。
         ngx_module_name=ngx_http_postpone_filter_module
         ngx_module_incs=
         ngx_module_deps=
@@ -264,6 +329,7 @@ if [ $HTTP = YES ]; then
     fi
 
     if [ $HTTP_SSI = YES ]; then
+        # 默认情况下HTTP_SSI会被置为YES，因此这里会启用ssi filter模块。
         have=NGX_HTTP_SSI . auto/have
 
         ngx_module_name=ngx_http_ssi_filter_module
@@ -288,6 +354,11 @@ if [ $HTTP = YES ]; then
     fi
 
     if [ $HTTP_XSLT != NO ]; then
+        # 在auto/options中HTTP_XSLT默认被设置为NO，但其可以通过如下：
+        #
+        #   --with-http_xslt_module)         HTTP_XSLT=YES              ;;
+        #   --with-http_xslt_module=dynamic) HTTP_XSLT=DYNAMIC          ;;
+        # 来设置编译为内部静态模块或外部动态模块。
         ngx_module_name=ngx_http_xslt_filter_module
         ngx_module_incs=
         ngx_module_deps=
@@ -299,6 +370,12 @@ if [ $HTTP = YES ]; then
     fi
 
     if [ $HTTP_IMAGE_FILTER != NO ]; then
+        # 在auto/options中HTTP_IMAGE_FILTER默认被设置为NO，但是其可以通过如下:
+        #
+        #   --with-http_image_filter_module) HTTP_IMAGE_FILTER=YES      ;;
+        #   --with-http_image_filter_module=dynamic)
+        #                                    HTTP_IMAGE_FILTER=DYNAMIC  ;;
+        # 来设置编译为内部静态模块或外部动态模块.
         ngx_module_name=ngx_http_image_filter_module
         ngx_module_incs=
         ngx_module_deps=
@@ -310,6 +387,7 @@ if [ $HTTP = YES ]; then
     fi
 
     if [ $HTTP_SUB = YES ]; then
+        # 在auto/options脚本中HTTP_SUB默认被设置为NO。
         ngx_module_name=ngx_http_sub_filter_module
         ngx_module_incs=
         ngx_module_deps=
@@ -321,6 +399,7 @@ if [ $HTTP = YES ]; then
     fi
 
     if [ $HTTP_ADDITION = YES ]; then
+        # 在auto/options脚本中HTTP_ADDITION默认被设置为NO.
         ngx_module_name=ngx_http_addition_filter_module
         ngx_module_incs=
         ngx_module_deps=
@@ -332,6 +411,7 @@ if [ $HTTP = YES ]; then
     fi
 
     if [ $HTTP_GUNZIP = YES ]; then
+        # 在auto/options脚本中HTTP_GUNZIP默认被设置为NO。
         have=NGX_HTTP_GZIP . auto/have
         USE_ZLIB=YES
 
@@ -346,6 +426,7 @@ if [ $HTTP = YES ]; then
     fi
 
     if [ $HTTP_USERID = YES ]; then
+        # 在auto/options脚本中HTTP_GUNZIP默认被设置为NO。
         ngx_module_name=ngx_http_userid_filter_module
         ngx_module_incs=
         ngx_module_deps=
@@ -357,6 +438,7 @@ if [ $HTTP = YES ]; then
     fi
 
     if :; then
+        # ngx_http_headers_filter_module作为内部静态模块处理.
         ngx_module_name=ngx_http_headers_filter_module
         ngx_module_incs=
         ngx_module_deps=
@@ -367,7 +449,7 @@ if [ $HTTP = YES ]; then
         . auto/module
     fi
 
-
+    # HTTP_INIT_FILTER模块
     ngx_module_type=HTTP_INIT_FILTER
     HTTP_INIT_FILTER_MODULES=
 
@@ -1358,6 +1440,13 @@ if [ $NGX_COMPAT = YES ]; then
 fi
 
 
+# ngx_modules.c文件就是用来定义ngx_modules数组的。
+#
+# ngx_modules是非常关键的数组，它指明了每个模块在Nginx中的优先级，当一个请求同时符合多个模块的处理规则时，它将按照它们在ngx_modules数组中的顺序选择最靠前的模块优先处理。
+# 对于HTTP过滤模块而言则相反，因为HTTP框架在初始化时，会在ngx_modules数组中将过滤模块按先后顺序向过滤链表中添加，但每次都添加到链表表头，因此，对HTTP过滤模块而言，在ngx_modules数组中越靠后的模块反而会首先处理HTTP响应。
+#
+# 因此，ngx_modules中模块的先后顺序非常重要，不正确的顺序会导致nginx无法工作，上面是auto/modules脚本执行后的结果。
+# 可以体会一下上面的ngx_modules中同一类型下各个模块的顺序以及这种顺序带来的意义。
 cat << END                                    > $NGX_MODULES_C
 
 #include <ngx_config.h>

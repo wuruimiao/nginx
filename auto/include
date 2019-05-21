@@ -32,7 +32,10 @@ ngx_test="$CC -o $NGX_AUTOTEST $NGX_AUTOTEST.c"
 eval "$ngx_test >> $NGX_AUTOCONF_ERR 2>&1"
 
 if [ -x $NGX_AUTOTEST ]; then
-
+    # 将ngx_found变量置为yes,
+    # 同时对$ngx_include变量所引用的头文件名将小写转换成成大写，将/.转换成__保存在变量$ngx_name中。
+    # 接着再调用auto/have_headers脚本文件向ngx_auto_headers.h头文件中写入NGX_HAVE_$ngx_name的宏定义。
+    # 最后再赋值给NGX_INCLUDE_$ngx_name和NGX_$ngx_name这两个变量，用于保存对应的头文件信息。
     ngx_found=yes
 
     echo " found"

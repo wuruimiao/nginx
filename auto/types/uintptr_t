@@ -14,6 +14,9 @@ END
 
 found=no
 
+# NGX_INTTYPES_H在auto/headers脚本调用中被设置:
+#      auto/include脚本如下行：
+#      eval "NGX_$ngx_name='#include <$ngx_include>'"
 cat << END > $NGX_AUTOTEST.c
 
 #include <sys/types.h>
@@ -42,6 +45,8 @@ rm -rf $NGX_AUTOTEST*
 
 
 if [ $found = no ]; then
+    # $ngx_ptr_size为auto/types/sizeof脚本求的当前机器字长（在/auto/unix脚本中调用获得）。
+    # 然后将found通过typedef的方式定义成uintptr_t并写入到objs/ngx_auto_config.h头文件中。
     found="uint`expr 8 \* $ngx_ptr_size`_t"
     echo ", $found used"
 

@@ -2,17 +2,21 @@
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
-
+# Makefile文件名变量
 NGX_MAKEFILE=$NGX_OBJS/Makefile
+# 源文件名变量
 NGX_MODULES_C=$NGX_OBJS/ngx_modules.c
 
+# 头文件名变量
 NGX_AUTO_HEADERS_H=$NGX_OBJS/ngx_auto_headers.h
 NGX_AUTO_CONFIG_H=$NGX_OBJS/ngx_auto_config.h
 
+# 自动测试文件名和配置错误文件名变量
 NGX_AUTOTEST=$NGX_OBJS/autotest
 NGX_AUTOCONF_ERR=$NGX_OBJS/autoconf.err
 
 # STUBs
+# STUBS相关变量
 NGX_ERR=$NGX_OBJS/autoconf.err
 MAKEFILE=$NGX_OBJS/Makefile
 
@@ -22,7 +26,10 @@ NGX_USE_PCH=
 
 
 # check the echo's "-n" option and "\c" capability
-
+# ngx_n: 若为空，表示会在末尾添加一个换行符；否则值为-n表示不在末尾添加一个换行符。
+# ngx_c：若为空，则不具备退行功能；否则值为\c表示具有退行功能。
+# 在UNIX下，echo输出内容以后，默认会添加输出一个换行符，以便下一次echo从下一行开始输出。
+# 而在输出内容末尾添加一个\c可以改变这一规则，输出内容完毕后光标仍然在本行，下一个echo的内功接在后面。
 if echo "test\c" | grep c >/dev/null; then
 
     if echo -n test | grep n >/dev/null; then

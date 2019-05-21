@@ -3,8 +3,11 @@
 # Copyright (C) Nginx, Inc.
 
 
+# NGX_MAKEFILE在auto/init脚本中被赋值为objs/Makefile。
 echo "creating $NGX_MAKEFILE"
 
+# 在auto/cc/conf脚本中ngx_regex_dirsep=”\/”,即斜杠目录分隔符。
+# NGX_USE_PCH为空，因此ngx_use_pch也为空。
 mkdir -p $NGX_OBJS/src/core $NGX_OBJS/src/event $NGX_OBJS/src/event/modules \
          $NGX_OBJS/src/os/unix $NGX_OBJS/src/os/win32 \
          $NGX_OBJS/src/http $NGX_OBJS/src/http/v2 $NGX_OBJS/src/http/modules \
@@ -17,7 +20,14 @@ mkdir -p $NGX_OBJS/src/core $NGX_OBJS/src/event $NGX_OBJS/src/event/modules \
 ngx_objs_dir=$NGX_OBJS$ngx_regex_dirsep
 ngx_use_pch=`echo $NGX_USE_PCH | sed -e "s/\//$ngx_regex_dirsep/g"`
 
-
+#这里$CC为在auto/options脚本中被置为cc。
+#
+#CFLAGS在auto/cc/gcc脚本中被置为：
+#
+#CFLAGS =  -pipe  -O -W -Wall -Wpointer-arith -Wno-unused-parameter -Werror -g
+#CPP在auto/cc/gcc脚本中被设置为cc -E。
+#
+#LINK在auto/cc/conf脚本中被设置为$(CC)。
 cat << END                                                     > $NGX_MAKEFILE
 
 CC =	$CC
@@ -27,7 +37,7 @@ LINK =	$LINK
 
 END
 
-
+# NGX_PERL_CFLAGS为空，不进行处理。
 if test -n "$NGX_PERL_CFLAGS"; then
     echo NGX_PERL_CFLAGS = $NGX_PERL_CFLAGS                   >> $NGX_MAKEFILE
     echo NGX_PM_CFLAGS = $NGX_PM_CFLAGS                       >> $NGX_MAKEFILE
@@ -36,7 +46,15 @@ fi
 
 
 # ALL_INCS, required by the addons and by OpenWatcom C precompiled headers
-
+# 处理依赖的头文件
+# 匹配任意两个空格之间的字符，且这两个空格之间本身不能为空格，这样讲匹配到的结果赋值给\1。
+# 另外在auto/cc/conf脚本中：
+#
+#   ngx_include_opt="-I "
+#
+#   ngx_regex_dirsep="\/"
+#
+#   ngx_regex_cont=' \\\     第一、第二个反斜杠表示对\进行转义，使得第二个反斜杠作为普通的字符使用。最后一个反斜杠作为shell脚本中连接下一行使用。
 ngx_incs=`echo $CORE_INCS $NGX_OBJS $HTTP_INCS $MAIL_INCS $STREAM_INCS\
     | sed -e "s/  *\([^ ][^ ]*\)/$ngx_regex_cont$ngx_include_opt\1/g" \
           -e "s/\//$ngx_regex_dirsep/g"`
@@ -70,8 +88,96 @@ CORE_INCS = $ngx_include_opt$ngx_incs
 
 END
 
+# NGX_OBJS值为objs。
+# 最后生成的各变量情况如下：
+#
+#ALL_INCS = -I src/core \
+#	-I src/event \
+#	-I src/event/modules \
+#	-I src/os/unix \
+#	-I ../pcre-8.40 \
+#	-I ../zlib-1.2.11 \
+#	-I objs \
+#	-I src/http \
+#	-I src/http/modules
+#
+#
+#CORE_DEPS = src/core/nginx.h \
+#	src/core/ngx_config.h \
+#	src/core/ngx_core.h \
+#	src/core/ngx_log.h \
+#	src/core/ngx_palloc.h \
+#	src/core/ngx_array.h \
+#	src/core/ngx_list.h \
+#	src/core/ngx_hash.h \
+#	src/core/ngx_buf.h \
+#	src/core/ngx_queue.h \
+#	src/core/ngx_string.h \
+#	src/core/ngx_parse.h \
+#	src/core/ngx_parse_time.h \
+#	src/core/ngx_inet.h \
+#	src/core/ngx_file.h \
+#	src/core/ngx_crc.h \
+#	src/core/ngx_crc32.h \
+#	src/core/ngx_murmurhash.h \
+#	src/core/ngx_md5.h \
+#	src/core/ngx_sha1.h \
+#	src/core/ngx_rbtree.h \
+#	src/core/ngx_radix_tree.h \
+#	src/core/ngx_rwlock.h \
+#	src/core/ngx_slab.h \
+#	src/core/ngx_times.h \
+#	src/core/ngx_shmtx.h \
+#	src/core/ngx_connection.h \
+#	src/core/ngx_cycle.h \
+#	src/core/ngx_conf_file.h \
+#	src/core/ngx_module.h \
+#	src/core/ngx_resolver.h \
+#	src/core/ngx_open_file_cache.h \
+#	src/core/ngx_crypt.h \
+#	src/core/ngx_proxy_protocol.h \
+#	src/core/ngx_syslog.h \
+#	src/event/ngx_event.h \
+#	src/event/ngx_event_timer.h \
+#	src/event/ngx_event_posted.h \
+#	src/event/ngx_event_connect.h \
+#	src/event/ngx_event_pipe.h \
+#	src/os/unix/ngx_time.h \
+#	src/os/unix/ngx_errno.h \
+#	src/os/unix/ngx_alloc.h \
+#	src/os/unix/ngx_files.h \
+#	src/os/unix/ngx_channel.h \
+#	src/os/unix/ngx_shmem.h \
+#	src/os/unix/ngx_process.h \
+#	src/os/unix/ngx_setaffinity.h \
+#	src/os/unix/ngx_setproctitle.h \
+#	src/os/unix/ngx_atomic.h \
+#	src/os/unix/ngx_gcc_atomic_x86.h \
+#	src/os/unix/ngx_thread.h \
+#	src/os/unix/ngx_socket.h \
+#	src/os/unix/ngx_os.h \
+#	src/os/unix/ngx_user.h \
+#	src/os/unix/ngx_dlopen.h \
+#	src/os/unix/ngx_process_cycle.h \
+#	src/os/unix/ngx_linux_config.h \
+#	src/os/unix/ngx_linux.h \
+#	src/event/ngx_event_openssl.h \
+#	src/core/ngx_regex.h \
+#	../pcre-8.40/pcre.h \
+#	objs/ngx_auto_config.h
+#
+#
+#CORE_INCS = -I src/core \
+#	-I src/event \
+#	-I src/event/modules \
+#	-I src/os/unix \
+#	-I ../pcre-8.40 \
+#	-I ../zlib-1.2.11 \
+#	-I objs
+#从上面我们看到，ALL_INCS相对于CORE_INCS多包含了http相关的头文件路径。
 
 # the http dependencies and include paths
+# 处理http相关依赖
 
 if [ $HTTP = YES ]; then
 
@@ -95,9 +201,27 @@ HTTP_INCS = $ngx_include_opt$ngx_incs
 END
 
 fi
+#当前HTTP为YES。最后生成的各变量情况如下：
+#
+#HTTP_DEPS = src/http/ngx_http.h \
+#	src/http/ngx_http_request.h \
+#	src/http/ngx_http_config.h \
+#	src/http/ngx_http_core_module.h \
+#	src/http/ngx_http_cache.h \
+#	src/http/ngx_http_variables.h \
+#	src/http/ngx_http_script.h \
+#	src/http/ngx_http_upstream.h \
+#	src/http/ngx_http_upstream_round_robin.h \
+#	src/http/modules/ngx_http_ssi_filter_module.h \
+#	src/http/modules/ngx_http_ssl_module.h
+#
+#
+#HTTP_INCS = -I src/http \
+#	-I src/http/modules
 
 
 # the mail dependencies and include paths
+# 处理MAIL相关依赖项，NO
 
 if [ $MAIL != NO ]; then
 
@@ -126,6 +250,7 @@ fi
 
 
 # the stream dependencies and include paths
+# NO
 
 if [ $STREAM != NO ]; then
 
@@ -152,6 +277,7 @@ END
 
 fi
 
+# 当前MISC_SRCS及NGX_ADDON_SRCS均为空。
 
 ngx_all_srcs="$ngx_all_srcs $MISC_SRCS"
 
@@ -183,15 +309,22 @@ do
     ngx_all_srcs="$ngx_all_srcs $ngx_obj"
 done
 
+# 上面首先处理所有源文件的目录分隔符，然后对NGX_ADDON_SRCS进行遍历，生成对应的编译目录，并将相应的编译目录添加到ngx_all_srcs中。
+
 ngx_all_objs=`echo $ngx_all_srcs \
     | sed -e "s#\([^ ]*\.\)cpp#$NGX_OBJS\/\1$ngx_objext#g" \
           -e "s#\([^ ]*\.\)cc#$NGX_OBJS\/\1$ngx_objext#g" \
           -e "s#\([^ ]*\.\)c#$NGX_OBJS\/\1$ngx_objext#g" \
           -e "s#\([^ ]*\.\)S#$NGX_OBJS\/\1$ngx_objext#g"`
+# 将ngx_all_srcs目录下后缀名为.cpp,.cc,.c,.S文件替换成.0后缀保存在ngx_all_objs变量中。我们在auto/cc/conf脚本中将ngx_object定义为o。
 
 ngx_modules_c=`echo $NGX_MODULES_C | sed -e "s/\//$ngx_regex_dirsep/g"`
 
 ngx_modules_obj=`echo $ngx_modules_c | sed -e "s/\(.*\.\)c/\1$ngx_objext/"`
+#在auto/init脚本中将NGX_MODULES_C定义为：
+#
+#NGX_MODULES_C=$NGX_OBJS/ngx_modules.c
+# 这里注意sed -e "s/\(.*\.\)c/\1$ngx_objext/,其中.*会在第一个匹配后在匹配0个或多个字符,这可以处理类似于test.helloworld.c这样的文件名。
 
 
 if test -n "$NGX_RES"; then

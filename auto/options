@@ -17,6 +17,7 @@ NGX_USER=
 NGX_GROUP=
 NGX_BUILD=
 
+# 如果CC变量没有定义，则CC定义为cc；否则为CC定义的变量值。
 CC=${CC:-cc}
 CPP=
 NGX_OBJS=objs
@@ -171,13 +172,17 @@ opt=
 
 for option
 do
+    # 匹配configure的参数选项（把匹配到的第一部分作为参数1，匹配到的第二部分作为参数2）。
+    # 因此，通过循环该语句后，最后opt的值就是一个由空格分隔的参数列表。
     opt="$opt `echo $option | sed -e \"s/\(--[^=]*=\)\(.* .*\)/\1'\2'/\"`"
 
+    # 将value赋值为参数选项值。如果该选项不符合匹配-*=*,则将value值设置为””.
     case "$option" in
         -*=*) value=`echo "$option" | sed -e 's/[-_a-zA-Z0-9]*=//'` ;;
            *) value="" ;;
     esac
 
+    # 各匹配的分支语句中进行配置变量的赋值
     case "$option" in
         --help)                          help=yes                   ;;
 
@@ -390,6 +395,7 @@ $0: warning: the \"--with-sha1-asm\" option is deprecated"
         --test-build-epoll)              NGX_TEST_BUILD_EPOLL=YES   ;;
         --test-build-solaris-sendfilev)  NGX_TEST_BUILD_SOLARIS_SENDFILEV=YES ;;
 
+        # 携带的参数错误
         *)
             echo "$0: error: invalid option \"$option\""
             exit 1
@@ -397,7 +403,7 @@ $0: warning: the \"--with-sha1-asm\" option is deprecated"
     esac
 done
 
-
+# 由空格分隔的配置项值
 NGX_CONFIGURE="$opt"
 
 
@@ -580,11 +586,13 @@ END
 fi
 
 
+# --crossbuild 指定的参数值
 if [ ".$NGX_PLATFORM" = ".win32" ]; then
     NGX_WINE=$WINE
 fi
 
 
+# 缺省值
 NGX_SBIN_PATH=${NGX_SBIN_PATH:-sbin/nginx}
 NGX_MODULES_PATH=${NGX_MODULES_PATH:-modules}
 NGX_CONF_PATH=${NGX_CONF_PATH:-conf/nginx.conf}
@@ -592,6 +600,8 @@ NGX_CONF_PREFIX=`dirname $NGX_CONF_PATH`
 NGX_PID_PATH=${NGX_PID_PATH:-logs/nginx.pid}
 NGX_LOCK_PATH=${NGX_LOCK_PATH:-logs/nginx.lock}
 
+# --error-log-path得到NGX_ERROR_LOG_PATH；
+# 如果指定的是stderr则将NGX_ERROR_LOG_PATH修改为空，即不需要错误日志文件。
 if [ ".$NGX_ERROR_LOG_PATH" = ".stderr" ]; then
     NGX_ERROR_LOG_PATH=
 else
@@ -605,8 +615,11 @@ NGX_HTTP_FASTCGI_TEMP_PATH=${NGX_HTTP_FASTCGI_TEMP_PATH:-fastcgi_temp}
 NGX_HTTP_UWSGI_TEMP_PATH=${NGX_HTTP_UWSGI_TEMP_PATH:-uwsgi_temp}
 NGX_HTTP_SCGI_TEMP_PATH=${NGX_HTTP_SCGI_TEMP_PATH:-scgi_temp}
 
+# --with-perl_modules_path得到NGX_PERL_MODULES
 case ".$NGX_PERL_MODULES" in
     ./*)
+    # 如果NGX_PERL_MODULES变量未设定值或者值为一个绝对路径，那么不做任何处理；
+    # 而如果指定的是一个相对路径，则最后设定为$NGX_PREFIX/$NGX_PERL_MODULES。
     ;;
 
     .)

@@ -2,9 +2,34 @@
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
+# 例子：（执行后删除了所有文件？）
+# 测试当前系统是否具有-pipe特性
+#    CC_TEST_FLAGS="-pipe"
+#    ngx_feature="gcc -pipe switch"
+#    ngx_feature_name=
+#    ngx_feature_run=no
+#    ngx_feature_incs=
+#    ngx_feature_path=
+#    ngx_feature_libs=
+#    ngx_feature_test=
+#    . auto/feature
+
+# 检查当前编译器是否支持gcc可变参数宏
+#     ngx_feature="gcc variadic macros"
+#     ngx_feature_name="NGX_HAVE_GCC_VARIADIC_MACROS"
+#     ngx_feature_run=yes
+#     ngx_feature_incs="#include <stdio.h>
+# #define var(dummy, args...)  sprintf(args)"
+#     ngx_feature_path=
+#     ngx_feature_libs=
+#     ngx_feature_test="char  buf[30]; buf[0] = '0';
+#                       var(0, buf, \"%d\", 1);
+#                       if (buf[0] != '1') return 1"
+#     . auto/feature
 
 echo $ngx_n "checking for $ngx_feature ...$ngx_c"
 
+# 向NGX_AUTOCONF_ERR表示的文件添加自动配置错误信息。默认情况下为objs/autoconf.err
 cat << END >> $NGX_AUTOCONF_ERR
 
 ----------------------------------------
@@ -14,6 +39,8 @@ END
 
 ngx_found=no
 
+# 判断$ngx_feature_name长度是否为0，不为0的话则将$ngx_feature_name转换成大写保存在ngx_have_feature变量中；
+# 接着再判断$ngx_feature_path长度是否为0，不为0的话则在$ngx_feature_path中的每一个路径前加上 -I 选项，将结果保存在ngx_feature_inc_path变量中。
 if test -n "$ngx_feature_name"; then
     ngx_have_feature=`echo $ngx_feature_name \
                    | tr abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ`
@@ -25,6 +52,9 @@ if test -n "$ngx_feature_path"; then
     done
 fi
 
+# $NGX_AUTOTEST是在auto/init脚本中初始化为$NGX_OBJS/autotest的，默认为objs/autotest。加上后缀名则为objs/autotest.c。
+# 其中$ngx_feature_incs 和 $ngx_feature_test都算是auto/feature脚本的参数。
+# $NGX_INCLUDE_UNISTD_H似乎没有地方定义
 cat << END > $NGX_AUTOTEST.c
 
 #include <sys/types.h>
@@ -38,7 +68,9 @@ int main(void) {
 
 END
 
-
+# 首先ngx_test变量保存编译命令，然后再执行eval，使用ngx_test变量保存的编译命令编译feature测试程序，并将编译输出写到$NGX_AUTOCONF_ERR中。
+# 上述eval命令中首先将标准输出(stdout)重定向到了$NGX_AUTOCONF_ERR文件中，接着将标准错误(stderr)重定向到了标准输出(stdout), 因此最后标准错误也会重定向到$NGX_AUTOCONF_ERR文件中。
+# ngx_test编译命令中：$CC_TEST_FLAGS、$CC_AUX_FLAGS、$NGX_TEST_LD_OPT一般与编译器相关，
 ngx_test="$CC $CC_TEST_FLAGS $CC_AUX_FLAGS $ngx_feature_inc_path \
           -o $NGX_AUTOTEST $NGX_AUTOTEST.c $NGX_TEST_LD_OPT $ngx_feature_libs"
 
@@ -46,7 +78,7 @@ ngx_feature_inc_path=
 
 eval "/bin/sh -c \"$ngx_test\" >> $NGX_AUTOCONF_ERR 2>&1"
 
-
+# 判断$NGX_AUTOTEST(即autotest）文件是否存在并且是可执行的
 if [ -x $NGX_AUTOTEST ]; then
 
     case "$ngx_feature_run" in

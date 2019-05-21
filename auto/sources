@@ -2,11 +2,24 @@
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
+# 为编译做准备，定义了所有需要编译的modules，以及编译这些modules需要哪些源文件。
+# 这些需要编译的modules都会通过脚本的方式写到ngx_modules.c文件中，然后编译进整个应用程序。
+# 因此nginx在启动时才知道自己需要启动那些modules。这种做法的一个好处就是，人们可以扩充很多modules，但是我们可以通过脚本的方式控制需要编译哪些，而不会造成任何不必要的代码被编译进nginx应用程序。
+# 一般采用如下4个变量来定义一个模块：
+#  模块名称
+#  模块头文件所在目录
+#  模块头文件
+#  模块源代码文件
 
+# nginx核心模块
 CORE_MODULES="ngx_core_module ngx_errlog_module ngx_conf_module"
 
+# nginx核心模块所在的目录
 CORE_INCS="src/core"
 
+# 记录了nginx核心模块所依赖的头文件
+# DEPS的含义为dependencies。其包含src/core/目录下的35个头文件，
+# 唯独没有包括为src/core/ngx_regex.h和src/core/ngx_thread_pool.h这两个
 CORE_DEPS="src/core/nginx.h \
            src/core/ngx_config.h \
            src/core/ngx_core.h \
@@ -43,7 +56,9 @@ CORE_DEPS="src/core/nginx.h \
            src/core/ngx_proxy_protocol.h \
            src/core/ngx_syslog.h"
 
-
+# 记录了nginx核心模块所依赖的源代码文件。
+# SRCS的含义是sources，包含src/core目录下的34个源文件，
+# 仅仅没有包含src/core/ngx_regex.c和src/core/ngx_thread_pool.c这两个：
 CORE_SRCS="src/core/nginx.c \
            src/core/ngx_log.c \
            src/core/ngx_palloc.c \
@@ -80,17 +95,25 @@ CORE_SRCS="src/core/nginx.c \
            src/core/ngx_proxy_protocol.c \
            src/core/ngx_syslog.c"
 
+# nginx事件模块包含定时器事件和网络事件两种。
 
+# 记录了nginx的事件模块。该模块包括:ngx_events_module和ngx_event_core_module.
 EVENT_MODULES="ngx_events_module ngx_event_core_module"
 
+# 记录了nginx事件模块所在的目录
 EVENT_INCS="src/event src/event/modules"
 
+# 记录了nginx事件模块所依赖的头文件。
+# 总共包括5个头文件，都在src/event目录下，
+# 唯独不包括该目录下的src/event/ngx_event_openssl.h文件，该文件属于openssl模块的头文件：
 EVENT_DEPS="src/event/ngx_event.h \
             src/event/ngx_event_timer.h \
             src/event/ngx_event_posted.h \
             src/event/ngx_event_connect.h \
             src/event/ngx_event_pipe.h"
-
+# 记录了nginx事件模块所依赖的源代码文件。
+# 总共包含6个源文件，都在src/event目录下，
+唯独不包含该目录下的src/event/ngx_event_openssl.c和src/event/ngx_event_openssl_stapling.c源文件：
 EVENT_SRCS="src/event/ngx_event.c \
             src/event/ngx_event_timer.c \
             src/event/ngx_event_posted.c \
@@ -98,6 +121,8 @@ EVENT_SRCS="src/event/ngx_event.c \
             src/event/ngx_event_connect.c \
             src/event/ngx_event_pipe.c"
 
+# nginx事件驱动模型包括包括：select、poll、kqueue、devpoll、eventport、epoll、iocp、aiso。
+# 其实它是属于上面nginx事件模块的一部分，存在于上面nginx事件模块头文件目录的src/event/modules目录下。
 
 SELECT_MODULE=ngx_select_module
 SELECT_SRCS=src/event/modules/ngx_select_module.c
@@ -124,6 +149,7 @@ IOCP_SRCS=src/event/modules/ngx_iocp_module.c
 FILE_AIO_SRCS="src/os/unix/ngx_file_aio_read.c"
 LINUX_AIO_SRCS="src/os/unix/ngx_linux_aio_read.c"
 
+# 类Unix操作系统
 UNIX_INCS="$CORE_INCS $EVENT_INCS src/os/unix"
 
 UNIX_DEPS="$CORE_DEPS $EVENT_DEPS \
@@ -179,8 +205,10 @@ UNIX_SRCS="$CORE_SRCS $EVENT_SRCS \
             src/os/unix/ngx_dlopen.c \
             src/os/unix/ngx_process_cycle.c"
 
+# posix相关配置头文件
 POSIX_DEPS=src/os/unix/ngx_posix_config.h
 
+# 多线程模块，线程池模块
 THREAD_POOL_MODULE=ngx_thread_pool_module
 THREAD_POOL_DEPS=src/core/ngx_thread_pool.h
 THREAD_POOL_SRCS="src/core/ngx_thread_pool.c
@@ -190,6 +218,7 @@ THREAD_POOL_SRCS="src/core/ngx_thread_pool.c
 
 FREEBSD_DEPS="src/os/unix/ngx_freebsd_config.h src/os/unix/ngx_freebsd.h"
 FREEBSD_SRCS=src/os/unix/ngx_freebsd_init.c
+# sendfile机制的源文件
 FREEBSD_SENDFILE_SRCS=src/os/unix/ngx_freebsd_sendfile_chain.c
 
 LINUX_DEPS="src/os/unix/ngx_linux_config.h src/os/unix/ngx_linux.h"
@@ -248,8 +277,9 @@ WIN32_SRCS="$CORE_SRCS $EVENT_SRCS \
             src/os/win32/ngx_process_cycle.c \
             src/event/ngx_event_acceptex.c"
 
+# nginx在windows平台的图表及资源文件：
 NGX_WIN32_ICONS="src/os/win32/nginx.ico"
 NGX_WIN32_RC="src/os/win32/nginx.rc"
 
-
+# HTTP缓存相关头文件
 HTTP_FILE_CACHE_SRCS=src/http/ngx_http_file_cache.c

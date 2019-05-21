@@ -26,6 +26,7 @@ int main(void) {
 
 END
 
+# 生成objs/autotest.c程序，然后编译。这里$NGX_LD_OPT与$ngx_feature_libs值为空.
 ngx_test="$CC $CC_TEST_FLAGS $CC_AUX_FLAGS \
           -o $NGX_AUTOTEST $NGX_AUTOTEST.c $NGX_LD_OPT $ngx_feature_libs"
 

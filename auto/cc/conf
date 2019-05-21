@@ -1,10 +1,14 @@
 
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
+# 作为编译器配置的一个总控脚本，主要完成编译器配置的选择及相关特性的测试。
 
-
+# 指定连接器：
 LINK="\$(CC)"
+# 注意，这里使用\$(CC)，而不是$(CC)。
+# 后者表示的是执行CC命令返回的结果，而前者表示将$(CC)作为一个字符串来看待。
 
+# 指定主链接选项和模块链接选项：
 MAIN_LINK=
 MODULE_LINK="-shared"
 
@@ -13,29 +17,51 @@ ngx_compile_opt="-c"
 ngx_pic_opt="-fPIC"
 ngx_objout="-o "
 ngx_binout="-o "
+# 上面-fPIC选项表示生成地址无关代码(Position Independent Code)。
+# 通常情况下-shared产生的共享库都需要添加此选项。
+# 它是通过全局偏移表(Global Offset Table,GOT)的方式访问所有常量地址的。
+
+# 目标文件扩展名、可执行文件扩展名：
 ngx_objext="o"
 ngx_binext=
 ngx_modext=".so"
 
+# 这两个变量是在编译选项中使用的，与平台相关。
+
+# 在 bcc 中，设置为'@&&|
+# 	'
+# 在 msvc 中，设置为'@<<
+# 	'
+# 在 owc 中，设置为' '
 ngx_long_start=
+# 在 bcc 中，设置为'|'
+# 在 msvc 中，设置为'<<'
+# 在 owc 中，设置为' '
 ngx_long_end=
 
+# 指定模式匹配表达式中目录分割符
 ngx_regex_dirsep="\/"
+# 指定目录分隔符
 ngx_dirsep='/'
-
+#  匹配 空格 + \\\ + 1个制表符
 ngx_regex_cont=' \\\
 	'
+# 匹配 空格 + \ + 1个制表符
 ngx_cont=' \
 	'
+# 空格 + \ + 2个制表符
 ngx_tab=' \
 		'
+# ngx空格
 ngx_spacer=
 
 ngx_long_regex_cont=$ngx_regex_cont
 ngx_long_cont=$ngx_cont
 
+# 执行auto/cc/name脚本，选择对应的编译器保存在NGX_CC_NAME变量中：
 . auto/cc/name
 
+# 根据编译器设置相应的编译连接选项
 if test -n "$CFLAGS"; then
 
     CC_TEST_FLAGS="$CFLAGS $NGX_CC_OPT"
@@ -143,9 +169,14 @@ fi
 
 CFLAGS="$CFLAGS $NGX_CC_OPT"
 NGX_TEST_LD_OPT="$NGX_LD_OPT"
+# 上面$NGX_CC_OPT变量保存设定的额外C编译器选项。
+# $NGX_LD_OPT变量保存设定的额外的链接器选项。
+# 其值分别是通过--with-cc-opt与--with-ld-opt来进行设置的，但是我们配置时均未进行设置。
+# CC_TEST_FLAGS与NGX_TEST_LD_OPT主要在auto/feature脚本中测试相应特性时使用。
 
+# 在非win32平台上测试相关特性。
 if [ "$NGX_PLATFORM" != win32 ]; then
-
+    # nginx的configure脚本支持--with-ld-opt选项。如果该选项值不为空，则测试是否支持对应的链接选项。
     if test -n "$NGX_LD_OPT"; then
         ngx_feature=--with-ld-opt=\"$NGX_LD_OPT\"
         ngx_feature_name=
@@ -162,6 +193,15 @@ if [ "$NGX_PLATFORM" != win32 ]; then
             exit 1
         fi
     fi
+
+# 测试-Wl,-E
+# -Wl,option的含义是：传递一个选项，该选项作为链接器(linker)的选项值。对于链接器的-E选项，gcc文档是这样解释的：
+#
+# If any of these options is used, then the linker is not run, and object file names
+# should not be used as arguments. See Section 3.2 [Overall Options], page 24.
+#
+# 见:page 175
+# 主要功能就是禁止linker选项中包含一些特定的选项值和文件名.
 
 
     ngx_feature="-Wl,-E switch"
@@ -181,6 +221,7 @@ if [ "$NGX_PLATFORM" != win32 ]; then
     if [ "$NGX_CC_NAME" = "sunc" ]; then
         echo "checking for gcc builtin atomic operations ... disabled"
     else
+        # 测试是否具有内置原子操作
         ngx_feature="gcc builtin atomic operations"
         ngx_feature_name=NGX_HAVE_GCC_ATOMIC
         ngx_feature_run=yes
@@ -202,6 +243,7 @@ if [ "$NGX_PLATFORM" != win32 ]; then
     if [ "$NGX_CC_NAME" = "ccc" ]; then
         echo "checking for C99 variadic macros ... disabled"
     else
+        # 测试是否支持C99可变参数宏
         ngx_feature="C99 variadic macros"
         ngx_feature_name="NGX_HAVE_C99_VARIADIC_MACROS"
         ngx_feature_run=yes
@@ -215,7 +257,7 @@ if [ "$NGX_PLATFORM" != win32 ]; then
         . auto/feature
     fi
 
-
+    # 测试是否支持gcc可变参数宏
     ngx_feature="gcc variadic macros"
     ngx_feature_name="NGX_HAVE_GCC_VARIADIC_MACROS"
     ngx_feature_run=yes
@@ -228,7 +270,7 @@ if [ "$NGX_PLATFORM" != win32 ]; then
                       if (buf[0] != '1') return 1"
     . auto/feature
 
-
+    # 测试是否支持内置的64bit 字节交换
     ngx_feature="gcc builtin 64 bit byteswap"
     ngx_feature_name="NGX_HAVE_GCC_BSWAP64"
     ngx_feature_run=no

@@ -2,13 +2,15 @@
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
-
+# 向objs/ngx_auto_headers.h头文件中定义NGX_LINUX宏：
 have=NGX_LINUX . auto/have_headers
 
+# 指定所包含的头文件、源文件、依赖文件
 CORE_INCS="$UNIX_INCS"
 CORE_DEPS="$UNIX_DEPS $LINUX_DEPS"
 CORE_SRCS="$UNIX_SRCS $LINUX_SRCS"
 
+# 设置空格符、编译辅助参数
 ngx_spacer='
 '
 
@@ -17,7 +19,7 @@ CC_AUX_FLAGS="$cc_aux_flags -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64"
 
 
 # Linux kernel version
-
+# 如当前uname -r值为3.10.0-514.el7.x86_64，则完成匹配后输出：3*256*256+10*256+0, version的值最后就为199168。
 version=$((`uname -r \
     | sed -n -e 's/^\([0-9][0-9]*\)\.\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/ \
                                                  \1*256*256+\2*256+\3/p' \
@@ -25,7 +27,7 @@ version=$((`uname -r \
 
 version=${version:-0}
 
-
+# posix_fadvise64()函数在2.5.60(132412=2*256*256+5*256+60)内核版本以前版本并没有实现，这里根据当前版本号做相应的宏定义。
 # posix_fadvise64() had been implemented in 2.5.60
 
 if [ $version -lt 132412 ]; then
@@ -33,7 +35,7 @@ if [ $version -lt 132412 ]; then
 fi
 
 # epoll, EPOLLET version
-
+# 如果检测到当前系统支持epoll，则向$CORE_SRCS变量中添加$EPOLL_MODULE，同时将EVENT_FOUND置为yes。
 ngx_feature="epoll"
 ngx_feature_name="NGX_HAVE_EPOLL"
 ngx_feature_run=yes
@@ -90,7 +92,7 @@ fi
 
 
 # O_PATH and AT_EMPTY_PATH were introduced in 2.6.39, glibc 2.14
-
+# O_PATH选项获取一个文件句柄，并主要在该句柄上进行两类操作：获取在文件系统树中的位置、单纯在文件描述符上的一些操作。
 ngx_feature="O_PATH"
 ngx_feature_name="NGX_HAVE_O_PATH"
 ngx_feature_run=no
@@ -106,7 +108,8 @@ ngx_feature_test="int fd; struct stat sb;
 
 
 # sendfile()
-
+# sendfile()直接在两个文件句柄之间拷贝数据，因为这里拷贝都是在内核层面完成，
+# 因此sendfile()比read()、write()这样的组合更高效，因为后者需要在用户空间传递数据。
 CC_AUX_FLAGS="$cc_aux_flags -D_GNU_SOURCE"
 ngx_feature="sendfile()"
 ngx_feature_name="NGX_HAVE_SENDFILE"
@@ -127,7 +130,7 @@ fi
 
 
 # sendfile64()
-
+# 与上述sendfile()类似，只不过支持64bit offset.
 CC_AUX_FLAGS="$cc_aux_flags -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64"
 ngx_feature="sendfile64()"
 ngx_feature_name="NGX_HAVE_SENDFILE64"
@@ -146,7 +149,7 @@ ngx_feature_test="int s = 0, fd = 1;
 ngx_include="sys/prctl.h"; . auto/include
 
 # prctl(PR_SET_DUMPABLE)
-
+# prctl()函数主要用于进程方面的操作。
 ngx_feature="prctl(PR_SET_DUMPABLE)"
 ngx_feature_name="NGX_HAVE_PR_SET_DUMPABLE"
 ngx_feature_run=yes
@@ -190,7 +193,7 @@ ngx_feature_test="struct __user_cap_data_struct    data;
 
 
 # crypt_r()
-
+# crypt_r()函数用于密码加密，它是一个基于DES标准的算法。
 ngx_feature="crypt_r()"
 ngx_feature_name="NGX_HAVE_GNU_CRYPT_R"
 ngx_feature_run=no
@@ -204,5 +207,9 @@ ngx_feature_test="struct crypt_data  cd;
 
 ngx_include="sys/vfs.h";     . auto/include
 
-
+# -D_FILE_OFFSET_BITS=64表示采用64bit文件偏移offset,针对32位系统会typedef做自动调整。
+# -D_GNU_SOURCE这个参数表示你编写符合GNU规范的代码。GNU相对POSIX有一些增强，也有一些缺少，总体来说GNU的实现应该是更好一点。但是这关系到软件的可移植性。
 CC_AUX_FLAGS="$cc_aux_flags -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64"
+
+
+# sched_setaffinity()主要用于进程调度时的CPU亲和性设置。没有？

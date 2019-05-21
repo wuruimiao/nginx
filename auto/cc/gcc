@@ -2,12 +2,13 @@
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
+# 主要是用于配置CFLAGS编译选项。
 
 # gcc 2.7.2.3, 2.8.1, 2.95.4, egcs-1.1.2
 #     3.0.4, 3.1.1, 3.2.3, 3.3.2, 3.3.3, 3.3.4, 3.4.0, 3.4.2
 #     4.0.0, 4.0.1, 4.1.0
 
-
+# 获取gcc版本号，然后将版本信息通过宏定义的形式写入到ngx_auto_config.h头文件中.
 NGX_GCC_VER=`$CC -v 2>&1 | grep 'gcc version' 2>&1 \
                          | sed -e 's/^.* version \(.*\)/\1/'`
 
@@ -17,7 +18,10 @@ have=NGX_COMPILER value="\"gcc $NGX_GCC_VER\"" . auto/define
 
 
 # Solaris 7's /usr/ccs/bin/as does not support "-pipe"
-
+# pipe特性是指在编译的各阶段(stage)使用pipe来通信，而不是采用临时文件的方式来通信。
+# 在有一些系统上，汇编器并不能够从pipe读取数据，因此不能正常工作。
+# GNU汇编器一般都具有pipe特性。
+# 运行auto/feature脚本，在编译选项中加入-pipe选项，以判断是否支持此特性。
 CC_TEST_FLAGS="-pipe"
 
 ngx_feature="gcc -pipe switch"
@@ -40,6 +44,7 @@ case "$NGX_MACHINE" in
 
     sun4u | sun4v | sparc | sparc64 )
         # "-mcpu=v9" enables the "casa" assembler instruction
+        # 在sun4u、sun4v、sparc、sparc64平台上支持casa汇编指令，因此在编译选项中添加-mcpu=v9的选项。
         CFLAGS="$CFLAGS -mcpu=v9"
     ;;
 
@@ -53,6 +58,10 @@ esac
 NGX_GCC_OPT="-O"
 
 #CFLAGS="$CFLAGS -fomit-frame-pointer"
+# 在函数中禁止保留帧指针(frame pointer)到寄存器中。则就避免了生成frame pointer的保存、建立、恢复的代码，加快了程序的运行。
+# 但是在有些系统上启用此功能后会使得编译出来的程序不能进行调试。
+# 从gcc4.6版本开始，默认会启用此功能，而如果需要保留帧指针(frame pointer)，则可以使用--enable-frame-pointer选项。
+# 一般情况下，在非调试程序中，都会给编译器添加--fomit-frame-pointer选项。
 
 case $CPU in
     pentium)
@@ -121,6 +130,11 @@ esac
 
 
 CFLAGS="$CFLAGS $PIPE $CPU_OPT"
+# 如上根据不同的CPU类型进行优化，然后将相应的优化选项添加到gcc的编译选项中。
+# CC_AUX_FLAGS作为辅助参数，并不会反映到最后生成的Makefile文件中，其只在脚本解析过程中被用到。
+# 而CFLAGS会作为编译选项反映到最后生成的Makefile文件中。
+# 这里在auto/options脚本当中，CPU默认被初始化为NO,我们后续也没有通过--with-cpu-opt选项来对CPU进行专门的设置。
+
 
 if [ ".$PCRE_OPT" = "." ]; then
     PCRE_OPT="-O2 -fomit-frame-pointer $PIPE $CPU_OPT"
@@ -134,8 +148,16 @@ else
     ZLIB_OPT="$ZLIB_OPT $PIPE"
 fi
 
+# nginx会依赖于pcre、md5、zlib等，nginx在编译过程中可以直接编译这些依赖库的源代码，这里为其设置编译选项。
+
 
 # warnings
+# -w: 关闭编译时的警告。也就是编译后不显示任何warning，因为有时在编译后编译器会显示一些例如数据转换之类的警告，这些警告我们平时可以忽略。
+# -Wall: 显示所有警告
+# -W: 类似于-Wall，但只显示编译器认为出现错误的警告
+# -Werror: 将所有警告都认为是发生了错误。
+# -Wpointer-arith: 对函数指针或者void *类型的指针进行算术操作时给出警告。-Wall 并不会打开此项。
+# -Wno-unused-parameter`: 表示对未被使用的函数参数不产生警告。
 
 # -W requires at least -O
 CFLAGS="$CFLAGS ${NGX_GCC_OPT:--O} -W"
@@ -174,6 +196,7 @@ CFLAGS="$CFLAGS -g"
 # DragonFly's gcc3 generates DWARF
 #CFLAGS="$CFLAGS -g -gstabs"
 
+# 如果没有设置预处理器，则将$CC -E作为预处理器。
 if [ ".$CPP" = "." ]; then
     CPP="$CC -E"
 fi
